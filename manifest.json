@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "CSV Editor & Viewer",
+  "name": "CSViewer",
   "version": "2.0",
   "description": "View, edit and export CSV files with light/dark mode support",
   "permissions": [
