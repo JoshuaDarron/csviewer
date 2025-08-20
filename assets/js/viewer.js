@@ -493,7 +493,7 @@ class CSVEditor {
     updateFileInfo() {
         if (this.filename) {
             this.fileInfo.innerHTML = `
-                <span>📄 ${this.filename}</span>
+                <span><i class="bi bi-file-earmark-text"></i> ${this.filename}</span>
             `;
         }
     }
