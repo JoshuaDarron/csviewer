@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Editor & Viewer</title>
+    <link rel="stylesheet" href="./assets/css/viewer.css">
+</head>
+<body data-theme="light">
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">📊 CSViewer</div>
+            <input type="file" id="csvFile" class="file-input" accept=".csv,.txt">
+            <button id="uploadBtn" class="btn btn-primary">
+                📁 Open File
+            </button>
+            <div id="fileInfo" class="file-info"></div>
+        </div>
+        <div class="header-right">
+            <div class="stats" id="stats" style="display: none;">
+                <div class="stat">
+                    <span>📊</span>
+                    <span id="rowCount">0 rows</span>
+                </div>
+                <div class="stat">
+                    <span>📋</span>
+                    <span id="colCount">0 columns</span>
+                </div>
+                <div class="stat" id="modifiedStat" style="display: none;">
+                    <span>✏️</span>
+                    <span>Modified</span>
+                </div>
+            </div>
+            <button id="exportBtn" class="btn btn-success" style="display: none;">
+                💾 Export CSV
+            </button>
+            <button id="themeToggle" class="theme-toggle" title="Toggle dark mode"></button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="success" class="success" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            Loading CSV file...
+        </div>
+
+        <div id="emptyState" class="empty-state">
+            <div class="empty-icon">📊</div>
+            <div class="empty-title">CSV Editor & Viewer</div>
+            <div class="empty-description">
+                Open a CSV file to view and edit its contents. You can also click on any CSV link on the web and it will automatically open in this editor.
+            </div>
+            
+            <div id="dropZone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <div class="drop-icon">📁</div>
+                    <div class="drop-text">Drop your CSV file here</div>
+                    <div class="drop-subtext">or click to browse files</div>
+                    <div class="btn btn-primary">
+                        Choose CSV File
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container" id="tableContainer" style="display: none;">
+            <div class="table-controls">
+                <div class="rows-per-page">
+                    <span>Rows per page:</span>
+                    <select id="rowsPerPage" class="rows-select">
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+                
+                <div class="pagination-controls">
+                    <div class="pagination-info" id="paginationInfo">
+                        Showing 1-25 of 100 rows
+                    </div>
+                    <div class="pagination-buttons">
+                        <button id="firstPageBtn" class="pagination-btn" title="First page">⏮️</button>
+                        <button id="prevPageBtn" class="pagination-btn" title="Previous page">⏪</button>
+                        <span id="pageNumbers" class="pagination-buttons"></span>
+                        <button id="nextPageBtn" class="pagination-btn" title="Next page">⏩</button>
+                        <button id="lastPageBtn" class="pagination-btn" title="Last page">⏭️</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-wrapper">
+                <table id="csvTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="./assets/js/viewer.js"></script>
+</body>
+</html>
