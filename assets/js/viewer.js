@@ -1,3 +1,194 @@
+// Toast Notification System
+class ToastManager {
+    constructor() {
+        this.container = document.getElementById('toastContainer');
+        this.toasts = new Map();
+        this.toastCounter = 0;
+    }
+
+    show(options = {}) {
+        const {
+            type = 'info',
+            title = '',
+            message = '',
+            duration = 5000,
+            showProgress = true,
+            closable = true,
+            id = null
+        } = options;
+
+        // If it's a loading toast with an ID, remove existing loading toast with same ID
+        if (type === 'loading' && id && this.toasts.has(id)) {
+            this.hide(id);
+        }
+
+        const toastId = id || `toast-${++this.toastCounter}`;
+        const toast = this.createToast({ type, title, message, duration, showProgress, closable, id: toastId });
+        
+        this.toasts.set(toastId, toast);
+        this.container.appendChild(toast.element);
+
+        // Trigger animation
+        requestAnimationFrame(() => {
+            toast.element.classList.add('show');
+        });
+
+        // Auto hide (except for loading toasts without duration)
+        if (duration > 0 && type !== 'loading') {
+            toast.timeout = setTimeout(() => {
+                this.hide(toastId);
+            }, duration);
+
+            // Start progress bar animation
+            if (showProgress && toast.progressBar) {
+                requestAnimationFrame(() => {
+                    toast.progressBar.style.transitionDuration = `${duration}ms`;
+                    toast.progressBar.style.transform = 'translateX(0)';
+                });
+            }
+        }
+
+        return toastId;
+    }
+
+    createToast({ type, title, message, duration, showProgress, closable, id }) {
+        const toastElement = document.createElement('div');
+        toastElement.className = `toast ${type}`;
+        toastElement.dataset.toastId = id;
+
+        // Icon based on type
+        let icon = '';
+        switch (type) {
+            case 'success':
+                icon = '<i class="bi bi-check-circle-fill"></i>';
+                break;
+            case 'error':
+                icon = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                break;
+            case 'loading':
+                icon = '<div class="toast-spinner"></div>';
+                break;
+            default:
+                icon = '<i class="bi bi-info-circle-fill"></i>';
+        }
+
+        let progressBar = null;
+        let progressBarHtml = '';
+        
+        if (showProgress && duration > 0 && type !== 'loading') {
+            progressBarHtml = `
+                <div class="toast-progress">
+                    <div class="toast-progress-bar"></div>
+                </div>
+            `;
+        }
+
+        toastElement.innerHTML = `
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-content">
+                ${title ? `<div class="toast-title">${title}</div>` : ''}
+                <div class="toast-message">${message}</div>
+            </div>
+            ${closable ? '<button class="toast-close"><i class="bi bi-x"></i></button>' : ''}
+            ${progressBarHtml}
+        `;
+
+        // Get progress bar element if it exists
+        if (showProgress && duration > 0 && type !== 'loading') {
+            progressBar = toastElement.querySelector('.toast-progress-bar');
+        }
+
+        // Add close functionality
+        if (closable) {
+            const closeBtn = toastElement.querySelector('.toast-close');
+            closeBtn.addEventListener('click', () => {
+                this.hide(id);
+            });
+        }
+
+        return {
+            element: toastElement,
+            progressBar,
+            timeout: null
+        };
+    }
+
+    hide(toastId) {
+        const toast = this.toasts.get(toastId);
+        if (!toast) return;
+
+        // Clear timeout if exists
+        if (toast.timeout) {
+            clearTimeout(toast.timeout);
+        }
+
+        // Trigger hide animation
+        toast.element.classList.remove('show');
+        toast.element.classList.add('hide');
+
+        // Remove from DOM after animation
+        setTimeout(() => {
+            if (toast.element.parentNode) {
+                toast.element.parentNode.removeChild(toast.element);
+            }
+            this.toasts.delete(toastId);
+        }, 300);
+    }
+
+    // Convenience methods
+    success(message, title = 'Success', options = {}) {
+        return this.show({
+            type: 'success',
+            title,
+            message,
+            ...options
+        });
+    }
+
+    error(message, title = 'Error', options = {}) {
+        return this.show({
+            type: 'error',
+            title,
+            message,
+            duration: 7000, // Longer duration for errors
+            ...options
+        });
+    }
+
+    loading(message, title = 'Loading', options = {}) {
+        return this.show({
+            type: 'loading',
+            title,
+            message,
+            duration: 0, // No auto-hide for loading
+            showProgress: false,
+            ...options
+        });
+    }
+
+    info(message, title = 'Info', options = {}) {
+        return this.show({
+            type: 'info',
+            title,
+            message,
+            ...options
+        });
+    }
+
+    // Update an existing toast (useful for loading states)
+    update(toastId, options = {}) {
+        this.hide(toastId);
+        return this.show({ ...options, id: toastId });
+    }
+
+    // Clear all toasts
+    clear() {
+        this.toasts.forEach((_, toastId) => {
+            this.hide(toastId);
+        });
+    }
+}
+
 class CSVEditor {
     constructor() {
         this.data = [];
@@ -9,6 +200,9 @@ class CSVEditor {
         this.currentPage = 1;
         this.rowsPerPage = 25;
         this.totalDataRows = 0;
+        
+        // Initialize toast manager
+        this.toast = new ToastManager();
         
         this.initElements();
         this.initEventListeners();
@@ -23,9 +217,6 @@ class CSVEditor {
         this.exportBtn = document.getElementById('exportBtn');
         this.themeToggle = document.getElementById('themeToggle');
         this.fileInfo = document.getElementById('fileInfo');
-        this.errorDiv = document.getElementById('error');
-        this.successDiv = document.getElementById('success');
-        this.loadingDiv = document.getElementById('loading');
         this.emptyState = document.getElementById('emptyState');
         this.tableContainer = document.getElementById('tableContainer');
         this.table = document.getElementById('csvTable');
@@ -96,9 +287,9 @@ class CSVEditor {
     }
 
     async loadCSVFromURL(url) {
+        const loadingId = this.toast.loading('Loading CSV from URL...');
+        
         try {
-            this.showLoading('Loading CSV from URL...');
-            
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`Failed to fetch CSV: ${response.statusText}`);
@@ -106,11 +297,12 @@ class CSVEditor {
             
             const text = await response.text();
             this.filename = this.getFilenameFromURL(url);
+            this.toast.hide(loadingId);
             this.processCSVText(text);
             
         } catch (error) {
-            this.showError('Error loading CSV from URL: ' + error.message);
-            this.hideLoading();
+            this.toast.hide(loadingId);
+            this.toast.error(`Error loading CSV from URL: ${error.message}`);
         }
     }
 
@@ -158,7 +350,7 @@ class CSVEditor {
             if (this.isValidCSVFile(file)) {
                 this.processFile(file);
             } else {
-                this.showError('Please drop a valid CSV file (.csv, .txt)');
+                this.toast.error('Please drop a valid CSV file (.csv, .txt)');
             }
         }
     }
@@ -176,20 +368,21 @@ class CSVEditor {
     }
 
     async processFile(file) {
+        const loadingId = this.toast.loading('Reading file...');
+        
         try {
-            this.showLoading('Reading file...');
-            
             if (file.size > 10 * 1024 * 1024) { // 10MB limit
                 throw new Error('File too large. Please use files under 10MB.');
             }
 
             const text = await file.text();
             this.filename = file.name;
+            this.toast.hide(loadingId);
             this.processCSVText(text);
             
         } catch (error) {
-            this.showError('Error reading file: ' + error.message);
-            this.hideLoading();
+            this.toast.hide(loadingId);
+            this.toast.error(`Error reading file: ${error.message}`);
         }
     }
 
@@ -202,9 +395,6 @@ class CSVEditor {
 
     processCSVText(text) {
         try {
-            this.hideError();
-            this.hideSuccess();
-            
             const data = this.parseCSV(text);
             
             if (data.length === 0) {
@@ -221,14 +411,11 @@ class CSVEditor {
             this.updateFileInfo();
             this.updateStats();
             this.updatePagination();
-            this.hideLoading();
             
-            this.showSuccess('CSV loaded successfully!');
-            setTimeout(() => this.hideSuccess(), 3000);
+            this.toast.success('CSV loaded successfully!');
             
         } catch (error) {
-            this.showError('Error processing CSV: ' + error.message);
-            this.hideLoading();
+            this.toast.error(`Error processing CSV: ${error.message}`);
         }
     }
 
@@ -469,11 +656,10 @@ class CSVEditor {
                 link.click();
                 document.body.removeChild(link);
                 
-                this.showSuccess('CSV exported successfully!');
-                setTimeout(() => this.hideSuccess(), 3000);
+                this.toast.success('CSV exported successfully!');
             }
         } catch (error) {
-            this.showError('Error exporting CSV: ' + error.message);
+            this.toast.error(`Error exporting CSV: ${error.message}`);
         }
     }
 
@@ -617,36 +803,6 @@ class CSVEditor {
         this.exportBtn.style.display = 'none';
         this.stats.style.display = 'none';
         this.modifiedStat.style.display = 'none';
-    }
-
-    showLoading(message = 'Loading...') {
-        this.loadingDiv.querySelector('div:last-child').textContent = message;
-        this.loadingDiv.style.display = 'flex';
-        this.hideTable();
-    }
-
-    hideLoading() {
-        this.loadingDiv.style.display = 'none';
-    }
-
-    showError(message) {
-        this.errorDiv.textContent = message;
-        this.errorDiv.style.display = 'block';
-        this.hideSuccess();
-    }
-
-    hideError() {
-        this.errorDiv.style.display = 'none';
-    }
-
-    showSuccess(message) {
-        this.successDiv.textContent = message;
-        this.successDiv.style.display = 'block';
-        this.hideError();
-    }
-
-    hideSuccess() {
-        this.successDiv.style.display = 'none';
     }
 }
 
