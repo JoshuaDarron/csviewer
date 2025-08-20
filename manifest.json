@@ -8,7 +8,7 @@
     "storage"
   ],
   "action": {
-    "default_title": "Open CSV Viewer"
+    "default_title": "Open CSViewer"
   },
   "background": {
     "service_worker": "assets/js/background.js"
