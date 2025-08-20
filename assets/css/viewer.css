@@ -172,18 +172,9 @@ body {
   transform: translateX(20px);
 }
 
-.main-content {
-  padding: 24px;
-  max-width: 100%;
-  overflow-x: auto;
-}
-
 .table-container {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
 }
 
 .table-controls {
@@ -270,8 +261,9 @@ body {
 }
 
 .table-wrapper {
+  flex: 1;
   overflow: auto;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 121px);
 }
 
 table {
@@ -465,14 +457,5 @@ tr:hover {
   
   .header-left, .header-right {
     justify-content: center;
-  }
-  
-  .main-content {
-    padding: 16px;
-  }
-  
-  th, td {
-    padding: 8px;
-    min-width: 100px;
   }
 }
