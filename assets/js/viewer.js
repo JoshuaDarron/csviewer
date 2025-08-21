@@ -287,31 +287,125 @@ class CSVEditor {
     }
 
     async loadCSVFromURL(url) {
-        const loadingId = this.toast.loading('Loading CSV from URL...');
+        const loadingId = this.toast.loading('Loading CSV...');
         
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch CSV: ${response.statusText}`);
+            // Handle file:// URLs differently
+            if (url.startsWith('file://')) {
+                // For file:// URLs, we need to fetch using XMLHttpRequest with special permissions
+                const text = await this.fetchLocalFile(url);
+                this.filename = this.getFilenameFromURL(url);
+                this.toast.hide(loadingId);
+                this.processCSVText(text);
+            } else {
+                // For http(s) URLs, use regular fetch
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch CSV: ${response.statusText}`);
+                }
+                
+                const text = await response.text();
+                this.filename = this.getFilenameFromURL(url);
+                this.toast.hide(loadingId);
+                this.processCSVText(text);
             }
-            
-            const text = await response.text();
-            this.filename = this.getFilenameFromURL(url);
-            this.toast.hide(loadingId);
-            this.processCSVText(text);
             
         } catch (error) {
             this.toast.hide(loadingId);
-            this.toast.error(`Error loading CSV from URL: ${error.message}`);
+            
+            // Provide more helpful error message for file:// URLs
+            if (url.startsWith('file://')) {
+                this.toast.error(
+                    'Unable to load local file. Please ensure "Allow access to file URLs" is enabled in the extension settings.',
+                    'File Access Error',
+                    { duration: 10000 }
+                );
+                
+                // Show instructions
+                this.showFileAccessInstructions();
+            } else {
+                this.toast.error(`Error loading CSV: ${error.message}`);
+            }
+        }
+    }
+
+    async fetchLocalFile(url) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'text';
+            
+            xhr.onload = function() {
+                if (xhr.status === 200 || xhr.status === 0) {
+                    resolve(xhr.responseText);
+                } else {
+                    reject(new Error(`Failed to load file: ${xhr.statusText}`));
+                }
+            };
+            
+            xhr.onerror = function() {
+                reject(new Error('Failed to load local file'));
+            };
+            
+            xhr.send();
+        });
+    }
+
+    showFileAccessInstructions() {
+        // Create a helpful message in the empty state
+        const instructions = document.createElement('div');
+        instructions.style.cssText = `
+            background: var(--bg-accent);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px auto;
+            max-width: 600px;
+            text-align: left;
+        `;
+        
+        instructions.innerHTML = `
+            <h3 style="margin-top: 0; color: var(--text-primary);">
+                <i class="bi bi-info-circle"></i> Enable File Access
+            </h3>
+            <p style="color: var(--text-secondary); margin: 10px 0;">
+                To open local CSV files directly, you need to enable file access:
+            </p>
+            <ol style="color: var(--text-secondary); margin: 10px 0; padding-left: 20px;">
+                <li>Go to Chrome Extensions (chrome://extensions/)</li>
+                <li>Find "CSViewer" extension</li>
+                <li>Click "Details"</li>
+                <li>Enable "Allow access to file URLs"</li>
+                <li>Refresh this page and try again</li>
+            </ol>
+            <p style="color: var(--text-secondary); margin: 10px 0;">
+                Alternatively, you can use the "Open File" button or drag & drop to load CSV files.
+            </p>
+        `;
+        
+        // Insert after the drop zone
+        if (this.dropZone && this.dropZone.parentNode) {
+            this.dropZone.parentNode.insertBefore(instructions, this.dropZone.nextSibling);
         }
     }
 
     getFilenameFromURL(url) {
         try {
+            // Handle file:// URLs
+            if (url.startsWith('file://')) {
+                // Remove file:// protocol and decode
+                let path = decodeURIComponent(url.replace('file:///', '').replace('file://', ''));
+                // Handle Windows paths
+                path = path.replace(/\//g, '\\');
+                // Get filename from path
+                return path.split('\\').pop() || path.split('/').pop() || 'local.csv';
+            }
+            
+            // Handle http(s) URLs
             const pathname = new URL(url).pathname;
             return pathname.split('/').pop() || 'remote.csv';
         } catch {
-            return 'remote.csv';
+            return 'data.csv';
         }
     }
 

@@ -1,11 +1,15 @@
 {
   "manifest_version": 3,
   "name": "CSViewer",
-  "version": "2.0",
+  "version": "2.1",
   "description": "View, edit and export CSV files with light/dark mode support",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "file:///*"
   ],
   "action": {
     "default_title": "Open CSViewer"
@@ -15,14 +19,21 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*/*.csv", "*://*/*.csv?*"],
-      "js": ["assets/js/content.js"]
+      "matches": [
+        "*://*/*.csv",
+        "*://*/*.csv?*",
+        "file:///*.csv",
+        "file:///*.CSV"
+      ],
+      "js": ["assets/js/content.js"],
+      "all_frames": true,
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["viewer.html", "assets/js/viewer.js", "assets/css/viewer.css"],
-      "matches": ["<all_urls>"]
+      "matches": ["<all_urls>", "file:///*"]
     }
   ],
   "icons": {
