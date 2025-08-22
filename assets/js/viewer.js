@@ -489,10 +489,35 @@ class CSVEditor {
 
     processCSVText(text) {
         try {
+            // Check for completely empty file
+            if (!text || text.trim().length === 0) {
+                this.handleEmptyCSV();
+                return;
+            }
+
             const data = this.parseCSV(text);
             
+            // Check for no data after parsing
             if (data.length === 0) {
-                throw new Error('No data found in the CSV file.');
+                this.handleEmptyCSV();
+                return;
+            }
+
+            // Check if only header exists (no data rows)
+            if (data.length === 1) {
+                this.handleHeaderOnlyCSV(data[0]);
+                return;
+            }
+
+            // Check if all rows are empty
+            const hasNonEmptyData = data.some((row, index) => {
+                if (index === 0) return true; // Skip header check
+                return row.some(cell => cell && cell.trim().length > 0);
+            });
+
+            if (!hasNonEmptyData) {
+                this.handleEmptyDataCSV(data[0]);
+                return;
             }
 
             this.data = data;
@@ -511,6 +536,63 @@ class CSVEditor {
         } catch (error) {
             this.toast.error(`Error processing CSV: ${error.message}`);
         }
+    }
+
+    handleEmptyCSV() {
+        // Create a default empty structure with one header and one empty row
+        this.data = [
+            ['Column 1', 'Column 2', 'Column 3'],
+            ['', '', '']
+        ];
+        this.originalData = JSON.parse(JSON.stringify(this.data));
+        this.isModified = false;
+        this.totalDataRows = 1;
+        this.currentPage = 1;
+        
+        this.displayData();
+        this.updateFileInfo();
+        this.updateStats();
+        this.updatePagination();
+        
+        this.toast.info('Empty CSV file loaded. A default structure has been created.', 'Empty File');
+    }
+
+    handleHeaderOnlyCSV(headers) {
+        // Add an empty data row to the headers
+        this.data = [
+            headers,
+            new Array(headers.length).fill('')
+        ];
+        this.originalData = JSON.parse(JSON.stringify(this.data));
+        this.isModified = false;
+        this.totalDataRows = 1;
+        this.currentPage = 1;
+        
+        this.displayData();
+        this.updateFileInfo();
+        this.updateStats();
+        this.updatePagination();
+        
+        this.toast.info('CSV contains only headers. An empty row has been added for editing.', 'Headers Only');
+    }
+
+    handleEmptyDataCSV(headers) {
+        // Keep headers but ensure at least one empty row for editing
+        this.data = [
+            headers,
+            new Array(headers.length).fill('')
+        ];
+        this.originalData = JSON.parse(JSON.stringify(this.data));
+        this.isModified = false;
+        this.totalDataRows = 1;
+        this.currentPage = 1;
+        
+        this.displayData();
+        this.updateFileInfo();
+        this.updateStats();
+        this.updatePagination();
+        
+        this.toast.info('CSV contains no data rows. An empty row has been added for editing.', 'No Data');
     }
 
     parseCSV(text) {
