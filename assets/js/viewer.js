@@ -195,6 +195,7 @@ class CSVEditor {
         this.originalData = [];
         this.isModified = false;
         this.filename = '';
+        this.fileHandle = null;
         
         // Pagination properties
         this.currentPage = 1;
@@ -215,6 +216,7 @@ class CSVEditor {
         this.uploadBtn = document.getElementById('uploadBtn');
         this.dropZone = document.getElementById('dropZone');
         this.exportBtn = document.getElementById('exportBtn');
+        this.saveBtn = document.getElementById('saveBtn');
         this.themeToggle = document.getElementById('themeToggle');
         this.fileInfo = document.getElementById('fileInfo');
         this.emptyState = document.getElementById('emptyState');
@@ -238,10 +240,11 @@ class CSVEditor {
     }
 
     initEventListeners() {
-        this.uploadBtn.addEventListener('click', () => this.fileInput.click());
-        this.dropZone.addEventListener('click', () => this.fileInput.click());
+        this.uploadBtn.addEventListener('click', () => this.openFile());
+        this.dropZone.addEventListener('click', () => this.openFile());
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         this.exportBtn.addEventListener('click', () => this.exportCSV());
+        this.saveBtn.addEventListener('click', () => this.saveFile());
         this.themeToggle.addEventListener('click', () => this.toggleTheme());
         
         // Pagination event listeners
@@ -277,6 +280,49 @@ class CSVEditor {
         localStorage.setItem('csvEditor-theme', newTheme);
     }
 
+    async openFile() {
+        if (window.showOpenFilePicker) {
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'], 'text/plain': ['.txt'] }
+                    }],
+                    multiple: false
+                })
+                this.fileHandle = handle
+                const file = await handle.getFile()
+                await this.processFile(file)
+            } catch (err) {
+                // User cancelled the picker
+                if (err.name !== 'AbortError') {
+                    this.toast.error(`Error opening file: ${err.message}`)
+                }
+            }
+        } else {
+            this.fileInput.click()
+        }
+    }
+
+    async saveFile() {
+        if (!this.fileHandle) return
+
+        try {
+            const writable = await this.fileHandle.createWritable()
+            await writable.write(this.generateCSVContent())
+            await writable.close()
+
+            this.isModified = false
+            this.originalData = JSON.parse(JSON.stringify(this.data))
+            this.modifiedStat.style.display = 'none'
+            this.toast.success('File saved successfully!')
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                this.toast.error(`Error saving file: ${err.message}`)
+            }
+        }
+    }
+
     async checkForURLParameter() {
         const urlParams = new URLSearchParams(window.location.search);
         const csvUrl = urlParams.get('url');
@@ -291,6 +337,7 @@ class CSVEditor {
         
         try {
             // Handle file:// URLs differently
+            this.fileHandle = null
             if (url.startsWith('file://')) {
                 // For file:// URLs, we need to fetch using XMLHttpRequest with special permissions
                 const text = await this.fetchLocalFile(url);
@@ -303,12 +350,13 @@ class CSVEditor {
                 if (!response.ok) {
                     throw new Error(`Failed to fetch CSV: ${response.statusText}`);
                 }
-                
+
                 const text = await response.text();
                 this.filename = this.getFilenameFromURL(url);
                 this.toast.hide(loadingId);
                 this.processCSVText(text);
             }
+            this.saveBtn.style.display = 'none'
             
         } catch (error) {
             this.toast.hide(loadingId);
@@ -431,18 +479,30 @@ class CSVEditor {
         }
     }
 
-    handleDrop(event) {
+    async handleDrop(event) {
         event.preventDefault();
         event.stopPropagation();
         this.dropZone.classList.remove('drag-over');
-        
+
         const files = event.dataTransfer.files;
         if (files.length > 0) {
             const file = files[0];
-            
+
             // Validate file type
             if (this.isValidCSVFile(file)) {
-                this.processFile(file);
+                // Try to get a file system handle for save support
+                this.fileHandle = null
+                if (event.dataTransfer.items && event.dataTransfer.items[0].getAsFileSystemHandle) {
+                    try {
+                        const handle = await event.dataTransfer.items[0].getAsFileSystemHandle()
+                        if (handle.kind === 'file') {
+                            this.fileHandle = handle
+                        }
+                    } catch (err) {
+                        // Handle not available, continue without it
+                    }
+                }
+                await this.processFile(file);
             } else {
                 this.toast.error('Please drop a valid CSV file (.csv, .txt)');
             }
@@ -463,7 +523,7 @@ class CSVEditor {
 
     async processFile(file) {
         const loadingId = this.toast.loading('Reading file...');
-        
+
         try {
             if (file.size > 10 * 1024 * 1024) { // 10MB limit
                 throw new Error('File too large. Please use files under 10MB.');
@@ -473,7 +533,8 @@ class CSVEditor {
             this.filename = file.name;
             this.toast.hide(loadingId);
             this.processCSVText(text);
-            
+            this.saveBtn.style.display = this.fileHandle ? 'inline-flex' : 'none';
+
         } catch (error) {
             this.toast.hide(loadingId);
             this.toast.error(`Error reading file: ${error.message}`);
@@ -484,6 +545,7 @@ class CSVEditor {
         const file = event.target.files[0];
         if (!file) return;
 
+        this.fileHandle = null
         await this.processFile(file);
     }
 
