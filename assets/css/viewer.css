@@ -694,12 +694,43 @@ tr:hover {
   100% { transform: rotate(360deg); }
 }
 
+/* Column Resize Handle */
+th {
+  overflow: hidden;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 11;
+}
+
+.resize-handle:hover {
+  background: var(--button-primary);
+  opacity: 0.5;
+}
+
+body.col-resizing {
+  cursor: col-resize !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.col-resizing * {
+  cursor: col-resize !important;
+}
+
 @media (max-width: 768px) {
   .header {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .header-left, .header-right {
     justify-content: center;
   }

@@ -201,6 +201,9 @@ class CSVEditor {
         this.currentPage = 1;
         this.rowsPerPage = 25;
         this.totalDataRows = 0;
+
+        // Column resize properties
+        this.columnWidths = [];
         
         // Initialize toast manager
         this.toast = new ToastManager();
@@ -587,6 +590,7 @@ class CSVEditor {
             this.isModified = false;
             this.totalDataRows = data.length - 1; // Exclude header
             this.currentPage = 1; // Reset to first page
+            this.columnWidths = []; // Reset column widths for new file
             
             this.displayData();
             this.updateFileInfo();
@@ -719,12 +723,34 @@ class CSVEditor {
 
         if (this.data.length === 0) return;
 
+        // Apply table-layout fixed when column widths are set
+        if (this.columnWidths.some(w => w)) {
+            this.table.style.tableLayout = 'fixed';
+        } else {
+            this.table.style.tableLayout = '';
+        }
+
         // Create header
         const headerRow = document.createElement('tr');
         this.data[0].forEach((header, index) => {
             const th = document.createElement('th');
             th.textContent = header || `Column ${index + 1}`;
             th.title = th.textContent;
+
+            // Apply stored column width
+            if (this.columnWidths[index]) {
+                th.style.width = this.columnWidths[index] + 'px';
+            }
+
+            // Add resize handle
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                this.initResize(index, e.clientX);
+            });
+            th.appendChild(handle);
+
             headerRow.appendChild(th);
         });
         this.tableHead.appendChild(headerRow);
@@ -1027,6 +1053,51 @@ class CSVEditor {
             this.colCount.textContent = `${this.data[0].length} columns`;
             this.stats.style.display = 'flex';
         }
+    }
+
+    initResize(colIndex, startX) {
+        const th = this.tableHead.querySelectorAll('th')[colIndex];
+        const startWidth = th.offsetWidth;
+
+        // Switch to fixed layout on first resize
+        if (!this.columnWidths.some(w => w)) {
+            // Capture all current column widths before switching to fixed layout
+            const allThs = this.tableHead.querySelectorAll('th');
+            allThs.forEach((header, i) => {
+                this.columnWidths[i] = header.offsetWidth;
+                header.style.width = header.offsetWidth + 'px';
+            });
+            this.table.style.tableLayout = 'fixed';
+        }
+
+        document.body.classList.add('col-resizing');
+
+        const onMouseMove = (e) => {
+            const delta = e.clientX - startX;
+            const newWidth = Math.max(60, startWidth + delta);
+            this.columnWidths[colIndex] = newWidth;
+
+            // Update header width
+            th.style.width = newWidth + 'px';
+
+            // Update body cell widths for this column
+            const rows = this.tableBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const cell = row.children[colIndex];
+                if (cell) {
+                    cell.style.width = newWidth + 'px';
+                }
+            });
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.classList.remove('col-resizing');
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     }
 
     showTable() {
