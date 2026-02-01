@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(file:*)"
+      "Bash(file:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Add in-place file save using File System Access API\n\n- Use showOpenFilePicker for opening files with save-back support\n- Add Save button \\(hidden by default\\) that appears when a file handle is available\n- Support getting file handles from drag-and-drop operations\n- Hide Save button for URL-loaded files\n- Move CLAUDE.md to .claude/ directory and add command configs\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
